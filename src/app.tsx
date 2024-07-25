@@ -16,20 +16,18 @@ export function Table({
 	const [selIdx, setSelIdx] = useState(0);
 
 	useInput((input, key) => {
-		console.log({ input, key })
 		if (key.upArrow || input === 'j')
 			setSelIdx(Math.max(selIdx - 1, 0))
 		if (key.downArrow || input === 'k')
 			setSelIdx(Math.min(selIdx + 1, data.length - 1))
-	});
+	}, { isActive: true });
 
-	const [scrollOffset, setScrollOffset] = useState(0);
     const { stdout } = useStdout();
-    const [viewportHeight, setViewportHeight] = useState(stdout.rows - 4); // Adjust for header and footer
+    const [viewportHeight, setViewportHeight] = useState(stdout.rows - 6); // Adjust for header and footer
 
     useEffect(() => {
         const updateViewportHeight = () => {
-            setViewportHeight(stdout.rows - 4);
+            setViewportHeight(stdout.rows - 6);
         };
         stdout.on('resize', updateViewportHeight);
         return () => {
@@ -48,10 +46,13 @@ export function Table({
 	const headers = _headers.map((text, i) => [text, cLen[i] || 0] as [str, num])
     const bot = `└${line}┘`;
 
+	const dataSliceIdx = selIdx//selIdx > strData.length - viewportHeight ? strData.length - viewportHeight : selIdx;
+
 	return <>
 		{top}
 		<TableHeader {...{headers}}/>
-		{strData.map((arr, idx) => {
+		{strData.slice(dataSliceIdx, selIdx + viewportHeight).map((arr) => {
+			const idx = Number(arr[0]) - 1;
 			const rowContent = arr.map((s, i) => ` ${s.padEnd(cLen[i]!)} `).join(l);
 			return <Text key={idx}>
 				{l}<Text
@@ -60,7 +61,7 @@ export function Table({
 				>{rowContent}</Text>{l}
 			</Text>;
     	})}
-		<Text>{bot}</Text>
+		{<Text>{'...' || bot}</Text>}
 	</>
 }
 
