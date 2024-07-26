@@ -1,0 +1,1 @@
+should probably auto clone the repo and build all the fonts

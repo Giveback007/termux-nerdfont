@@ -1,3 +1,4 @@
+import { createWriteStream } from "fs";
 import { readFile, writeFile } from "fs/promises";
 
 export const wait = (ms: number) => new Promise(res => setTimeout(res, ms));
@@ -47,4 +48,58 @@ export function type(val: any): JsType {
     if (val !== val)                return 'NaN';
 
     return typeof val;
+}
+
+export async function download(url: string, destination: string, onProgress?: (progress: number) => any) {
+    const resp = await fetch(url);
+    const okStart = resp.ok && resp.body;
+    if (!okStart) return {
+        isOk: false,
+        data: resp.statusText,
+        err: { res: resp, code: resp.status, statusText: resp.statusText }
+    } as const;
+
+    const totalSize = Number(resp.headers.get('Content-Length') || 0);
+    let downloadedSize = 0;
+
+    try {
+        const reader = resp.body.getReader();
+        const writer = createWriteStream(destination);
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            downloadedSize += value.byteLength;
+            const progress = Math.floor((downloadedSize / totalSize) * 100);
+            log(progress)
+            if (onProgress) onProgress(progress);
+
+            writer.write(value);
+        }
+
+        writer.end();
+        return { isOk: true, data: 'download-success' } as const;
+    } catch (error) {
+        return {
+            isOk: false,
+            data: 'Error during download',
+            err: error
+        } as const;
+    }
+}
+
+export async function fetchJSON<T>(url: str) {
+    try {
+        const res = await fetch(url);
+        if (!res.ok) return {
+            isOk: false,
+            err: { res, code: res.status, err: res.statusText }
+        } as const
+
+        const json = await res.json() as T;
+        return { isOk: true, data: json } as const
+    } catch(err) {
+        return { isOk: false, err } as const
+    }
 }

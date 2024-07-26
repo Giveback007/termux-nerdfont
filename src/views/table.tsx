@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import {Text, useInput, useStdout} from 'ink';
-import { isType } from './utils/general.utils.js';
+import { isType } from '../utils/general.utils.js';
 
 const u = '─';
 const l = '│';
-// const nl = '\n';
 
 export function Table({
-	title, headers: _headers, data
+	title, headers: _headers, data, onSelected
 }: {
 	title?: str;
 	headers: str[];
-	data: (str | num | bol)[][];
+	data: TableDataItem[];
+	onSelected: (arr: TableDataItem) => any;
 }) {
 	const [selIdx, setSelIdx] = useState(0);
 
@@ -20,14 +20,16 @@ export function Table({
 			setSelIdx(Math.max(selIdx - 1, 0))
 		if (key.downArrow || input === 'k')
 			setSelIdx(Math.min(selIdx + 1, data.length - 1))
+		if (key.return || input === ' ')
+			onSelected(data[selIdx]!)
 	}, { isActive: true });
 
     const { stdout } = useStdout();
-    const [viewportHeight, setViewportHeight] = useState(stdout.rows - 6); // Adjust for header and footer
+    const [viewportHeight, setViewportHeight] = useState(stdout.rows - 7); // Adjust for header and footer
 
     useEffect(() => {
         const updateViewportHeight = () => {
-            setViewportHeight(stdout.rows - 6);
+            setViewportHeight(stdout.rows - 7);
         };
         stdout.on('resize', updateViewportHeight);
         return () => {
@@ -35,7 +37,7 @@ export function Table({
         };
     }, [stdout]);
 
-	const strData = data.map(arr => arr.map(x => !isType(x, 'string') ? x.toString() : x));
+	const strData = data.map(obj => obj.row.map(x => !isType(x, 'string') ? x.toString() : x));
 	const cLen = _headers.map(s => s.length);
     strData.map(arr => arr.map((s, i) => cLen[i] = Math.max(cLen[i] || 0, s.length)))
 	const tableWidth = cLen.reduce((sum, a) => sum + a + 2, cLen.length + 1) - 2;
@@ -46,22 +48,24 @@ export function Table({
 	const headers = _headers.map((text, i) => [text, cLen[i] || 0] as [str, num])
     const bot = `└${line}┘`;
 
-	const dataSliceIdx = selIdx//selIdx > strData.length - viewportHeight ? strData.length - viewportHeight : selIdx;
+	const dataSliceIdx = Math.min(selIdx, strData.length - viewportHeight)
 
 	return <>
 		{top}
 		<TableHeader {...{headers}}/>
-		{strData.slice(dataSliceIdx, selIdx + viewportHeight).map((arr) => {
+		{strData.slice(dataSliceIdx, selIdx + viewportHeight).map((arr, i) => {
 			const idx = Number(arr[0]) - 1;
 			const rowContent = arr.map((s, i) => ` ${s.padEnd(cLen[i]!)} `).join(l);
 			return <Text key={idx}>
 				{l}<Text
-					backgroundColor={idx % 2 ? 'black' : 'gray'}
+					backgroundColor={i % 2 ? 'black' : 'gray'}
 					inverse={idx === selIdx}
 				>{rowContent}</Text>{l}
 			</Text>;
     	})}
-		{<Text>{'...' || bot}</Text>}
+		{<Text>{dataSliceIdx === strData.length - viewportHeight ? bot : ` ⮟ ... ${strData.length} ⮟`}</Text>}
+
+		<Text>Use j/k or ↑/↓; Press enter/space to select</Text>
 	</>
 }
 
